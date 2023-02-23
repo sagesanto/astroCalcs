@@ -6,11 +6,34 @@ import tkinter as tk
 from tkinter import *
 
 root = tk.Tk()
+root.geometry("+300+300")
 
 formulas = {}
-
+log = []
 def selectFormula(formula):
-    userFormulaInterp(formula.get())
+    print(formula)
+    if formula.get()!="Select a formula":
+      userFormulaInterp(formula.get())
+
+
+def showInfo(formula):
+    global root, formulas
+    if formula.get()!="Select a formula":
+        infoWindow = tk.Toplevel(root)
+        infoWindow.title("Formula Info")
+        infoFrame = tk.Frame(master=infoWindow, relief=tk.FLAT, borderwidth=10)
+        infoFrame.pack(side=tk.LEFT)
+        formula = formulas[formula.get()]
+        header = tk.Label(text=formula.name, master=infoFrame)
+        header.pack()
+        expression = tk.Label(text=formula.expression, master=infoFrame)
+        expression.pack()
+        desc = tk.Label(text=formula.description, master=infoFrame)
+        desc.pack()
+        variables = tk.Label(text="Variables: "+concatListToString(formula.variables), master=infoFrame)
+        variables.pack()
+        tk.Button(master=infoFrame, text="Back", command=infoWindow.destroy).pack()
+
 
 def userFormulaInterp(formula):
     global root, formulas
@@ -28,27 +51,27 @@ def userFormulaInterp(formula):
         entries[variable] = entry
         label.pack()
         entry.pack()
-    tk.Button(master=entryFrame, text="Evaluate", command=lambda: evalFormula(entries,formula)).pack()
+    tk.Button(master=entryFrame, text="Evaluate", command=lambda: evalFormula(entries,formula,evalWindow)).pack()
+    tk.Button(master=entryFrame, text="Back", command=evalWindow.destroy).pack()
 
-def evalFormula(entries,formula):
+
+def evalFormula(entries,formula,evalWindow):
     global root
     #process entries. remove the ones that are empty
     values = {}
     for entry in entries.keys():
         if entries[entry].get() != "":
             values[entry] = entries[entry].get()
-
+    resultFrame = tk.Frame(master=evalWindow, relief=tk.FLAT, borderwidth=10,width=100)
+    resultFrame.pack(side=tk.RIGHT)
     val,solvingFor = formula.evaluate(values)
     #display the result on the root window
+    log.append(solvingFor+": "+ str(val))
+    result = tk.Label(text=solvingFor+": "+ str(val), master=resultFrame)
+    result.pack(side=tk.BOTTOM)
 
-    result = tk.Label(text=solvingFor+": "+ str(val))
-    result.pack()
 
-def done():
-    global root
-    root.withdraw()
-    userRadiusInterp()
-
+#this is not in use, just an example from a previous project
 def handleEnter(event):
     global numRanges, entry
     numRanges += 1
@@ -65,18 +88,22 @@ def formulaSelection(formulas):
     global root, value_inside
     root.title("Evaluate Formula")
     entryFrame = tk.Frame(master=root,relief=tk.FLAT,borderwidth=10)
-    entryFrame.pack(side=tk.LEFT)
-    header = tk.Label(text="Choose a formula from the dropdown, then confirm selection", master=entryFrame)
-    header.pack()
+    entryFrame.pack(side=tk.RIGHT,fill=BOTH,expand=True)
+    buttonFrame = tk.Frame(master=root, relief=tk.FLAT, borderwidth=10)
+    buttonFrame.pack(fill=BOTH)
+    header = tk.Label(text="Choose a formula from the dropdown, then confirm selection or press info to see formula details", master=entryFrame)
+    header.pack(fill=BOTH)
     options = formulas.keys()
     value_inside = tk.StringVar(entryFrame)
     value_inside.set("Select a formula")
-    dropDown = tk.OptionMenu(entryFrame, value_inside, *options)
-    dropDown.pack()
-    # entry = tk.Entry(width=20, bg="white", fg="black",master=entryFrame)
-    # entry.pack()
-    tk.Button(master=entryFrame, text="Select", command=lambda: selectFormula(value_inside)).pack()
-    tk.Button(master=entryFrame, text="Quit", command=root.destroy).pack()
+    dropDown = tk.OptionMenu(entryFrame,value_inside, *options)
+    dropDown.config(width=20,height=2)
+    dropDown.pack(side=tk.LEFT)
+
+    tk.Button(master=root, width=10, height=2, text="Select", command=lambda: selectFormula(value_inside)).pack(in_=buttonFrame)
+    tk.Button(master=root, width=10, height=2, text="Info", command=lambda: showInfo(value_inside)).pack(in_=entryFrame,side=tk.LEFT)
+    tk.Button(master=root, width=10, height=2, text="Quit", command=root.destroy).pack(in_=buttonFrame)
+
     listFrame = tk.Frame(master=root,relief=tk.RIDGE,borderwidth =1)
     listFrame.pack(side=tk.RIGHT)
     root.bind('<Return>', handleEnter)
@@ -125,10 +152,11 @@ class formula:
     def formatExpression(self,expression):
         global constants
         split = expression.split(" ")
+        value = ""
         for symb in split:
             if symb in constants.keys():
-                expression = expression.replace(symb, str(constants[symb]))
-        return expression
+                value = expression.replace(symb, str(constants[symb]))
+        return value
     def evaluate(self, values): #values is a dictionary of variables to values, containing one less entry than there are variables
         print("Evaluating",self.expression,"with",values)
         solvingFor = oddOneOut(values, self.variables)
@@ -164,7 +192,7 @@ def lumRadTemp(values): #values is a dict of {R:val,T:val,L:val} but with one mi
         expr = expr.subs(arg,values[arg])
     return expr
 
-lum = formula("Stellar Luminosity","4 * pi * R ** 2 * stefanBoltzmann * T ** 4 - L", "Find one of radius, temperature, or temperature from the other two", ["R","T","L"])
+lum = formula("Stellar Luminosity","4 * pi * R ** 2 * stefanBoltzmann * T ** 4 - L", "Find one of radius, temperature, or luminosity from the other two", ["R","T","L"])
 absoluteMag = formula("Absolute Magnitude","m - 5 * log(d,10)+5-M", "Find the absolute magnitude of a star given its apparent magnitude and distance", ["m","d","M"])
 
 # print("eval",lum.evaluate({"R":6.957*10**8,"T":5778}))
